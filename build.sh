@@ -34,6 +34,7 @@ clang \
   -framework UIKit \
   -framework Foundation \
   -framework QuartzCore \
+  -framework CoreGraphics \
   "${SOURCES[@]}" \
   -o "$OUT_DIR/$OUT_NAME"
 
