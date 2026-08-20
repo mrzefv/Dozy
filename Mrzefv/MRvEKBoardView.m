@@ -1,6 +1,7 @@
 #import "MRvEKBoardView.h"
 #import "MRvEKPostDetailView.h"
 #import "MRvEKIdentity.h"
+#import "MRvEKFileTransfer.h"
 
 @interface MRvEKBoardEntry : NSObject
 @property (nonatomic, copy) NSString *title;
@@ -358,7 +359,20 @@
     [menu addAction:[UIAlertAction actionWithTitle:@"Local P2P"
                                               style:UIAlertActionStyleDefault
                                             handler:^(UIAlertAction *action) {
-        NSLog(@"[Mrzefv] Local P2P selected");
+        UIAlertController *soon = [UIAlertController alertControllerWithTitle:@"Local P2P"
+                                                                        message:@"Coming soon — local peer-to-peer signing and install. No backend. Not built yet."
+                                                                 preferredStyle:UIAlertControllerStyleAlert];
+        [soon addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
+        [self presentViewController:soon animated:YES completion:nil];
+    }]];
+
+    [menu addAction:[UIAlertAction actionWithTitle:@"File Transfer"
+                                              style:UIAlertActionStyleDefault
+                                            handler:^(UIAlertAction *action) {
+        MRvEKFileTransferViewController *vc = [[MRvEKFileTransferViewController alloc] init];
+        vc.modalPresentationStyle = UIModalPresentationOverFullScreen;
+        vc.modalTransitionStyle = UIModalTransitionStyleCrossDissolve;
+        [self presentViewController:vc animated:YES completion:nil];
     }]];
 
     [menu addAction:[UIAlertAction actionWithTitle:@"Device Information"
