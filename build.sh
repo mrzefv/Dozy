@@ -9,12 +9,21 @@ SRC_DIR="Mrzefv"
 
 mkdir -p "$OUT_DIR"
 
-shopt -s nullglob
-SOURCES=("$SRC_DIR"/*.m)
-if [ ${#SOURCES[@]} -eq 0 ]; then
-  echo "No source files found in $SRC_DIR" >&2
-  exit 1
-fi
+# Explicit file list on purpose — anything else sitting in Mrzefv/
+# (old files not yet deleted) is ignored instead of silently pulled
+# into the build.
+SOURCES=(
+  "$SRC_DIR/MRvEKUplink.m"
+  "$SRC_DIR/MRvEKConnectView.m"
+  "$SRC_DIR/MRvEKBoardView.m"
+)
+
+for f in "${SOURCES[@]}"; do
+  if [ ! -f "$f" ]; then
+    echo "Missing source file: $f" >&2
+    exit 1
+  fi
+done
 
 clang \
   -arch arm64 -arch arm64e \
@@ -31,4 +40,4 @@ clang \
 
 install_name_tool -id "@rpath/$OUT_NAME" "$OUT_DIR/$OUT_NAME"
 
-echo "Built $OUT_DIR/$OUT_NAME from: ${SOURCES[*]}"
+echo "Built $OUT_DIR/$OUT_NAME"
