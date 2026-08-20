@@ -1,44 +1,30 @@
-name: Build Mrzefv dylib
+name: Build Dozy
 
 on:
   push:
-    branches: ["main"]
+    branches: [ main ]
   workflow_dispatch:
 
 jobs:
   build:
-    runs-on: macos-latest
-
+    runs-on: macos-14
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
 
-      - name: Show Xcode
-        run: xcodebuild -version
+      - name: Install ldid
+        run: brew install ldid
 
-      - name: Build
+      - name: Build dylib
         run: |
-          xcodebuild \
-            -project MrzefvDylib.xcodeproj \
-            -scheme MrzefvDylib \
-            -configuration Release \
-            -sdk iphoneos \
-            BUILD_LIBRARY_FOR_DISTRIBUTION=NO \
-            CODE_SIGNING_ALLOWED=NO \
-            CODE_SIGNING_REQUIRED=NO \
-            clean build
+          chmod +x build.sh
+          ./build.sh
 
-      - name: Locate dylib
-        run: |
-          find build -name "*.dylib" -print
+      - name: Fakesign
+        run: ldid -S build/MRvEKUplink.dylib
 
-      - name: Package
-        run: |
-          mkdir -p artifact
-          find build -name "*.dylib" -exec cp {} artifact/ \;
-
-      - name: Upload dylib
-        uses: actions/upload-artifact@v6
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
         with:
-          name: Mrzefv-dylib
-          path: artifact/
+          name: MRvEKUplink-dylib
+          path: build/MRvEKUplink.dylib
