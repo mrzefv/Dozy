@@ -2,6 +2,8 @@
 #import "MRvEKPostDetailView.h"
 #import "MRvEKIdentity.h"
 #import "MRvEKFileTransfer.h"
+#import "MRvEKLocalPosts.h"
+#import "MRvEKComposePost.h"
 
 @interface MRvEKBoardEntry : NSObject
 @property (nonatomic, copy) NSString *title;
@@ -21,6 +23,7 @@
 @property (nonatomic, strong) UIView *countRow;
 @property (nonatomic, strong) UITableView *tableView;
 @property (nonatomic, strong) NSArray<MRvEKBoardEntry *> *entries;
+@property (nonatomic, strong) NSArray<MRvEKLocalPost *> *localPosts;
 @end
 
 @implementation MRvEKBoardViewController
@@ -29,11 +32,19 @@
     [super viewDidLoad];
     self.view.backgroundColor = [UIColor colorWithWhite:0.0 alpha:0.92]; // dim, not opaque
     [self buildEntries];
+    self.localPosts = [MRvEKLocalPosts allPosts];
     [self buildHeader];
     [self buildHero];
     [self buildSearchBar];
     [self buildCountRow];
     [self buildTableView];
+}
+
+- (void)viewWillAppear:(BOOL)animated {
+    [super viewWillAppear:animated];
+    // Picks up anything posted while a compose sheet was on top of this screen.
+    self.localPosts = [MRvEKLocalPosts allPosts];
+    [self.tableView reloadData];
 }
 
 // Real posts, real (original-written) content, mock comment/view counts
@@ -290,11 +301,43 @@
 
 #pragma mark - UITableViewDataSource
 
+- (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView {
+    return 2; // 0 = Pinned (static), 1 = Your Posts (local, MDID-tagged)
+}
+
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
-    return self.entries.count;
+    return section == 0 ? self.entries.count : self.localPosts.count;
+}
+
+- (NSString *)tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section {
+    return section == 0 ? @"Pinned" : [NSString stringWithFormat:@"Your Posts (%lu)", (unsigned long)self.localPosts.count];
+}
+
+- (UIView *)tableView:(UITableView *)tableView viewForHeaderInSection:(NSInteger)section {
+    UILabel *label = [[UILabel alloc] init];
+    label.text = [[self tableView:tableView titleForHeaderInSection:section] uppercaseString];
+    label.textColor = [UIColor colorWithWhite:1.0 alpha:0.35];
+    label.font = [UIFont systemFontOfSize:10 weight:UIFontWeightSemibold];
+    label.frame = CGRectMake(16, 8, tableView.bounds.size.width - 32, 20);
+
+    UIView *container = [[UIView alloc] initWithFrame:CGRectMake(0, 0, tableView.bounds.size.width, 34)];
+    container.backgroundColor = [UIColor clearColor];
+    [container addSubview:label];
+    return container;
+}
+
+- (CGFloat)tableView:(UITableView *)tableView heightForHeaderInSection:(NSInteger)section {
+    return 34;
 }
 
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
+    if (indexPath.section == 0) {
+        return [self pinnedCellForTableView:tableView indexPath:indexPath];
+    }
+    return [self localPostCellForTableView:tableView indexPath:indexPath];
+}
+
+- (UITableViewCell *)pinnedCellForTableView:(UITableView *)tableView indexPath:(NSIndexPath *)indexPath {
     UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:@"MRvEKRow" forIndexPath:indexPath];
     // Pinned tint uses your own red (same value as the "Mrzefv" wordmark),
     // not doxbin's — every row here is pinned, so all of them get it.
@@ -338,15 +381,69 @@
     return cell;
 }
 
+- (UITableViewCell *)localPostCellForTableView:(UITableView *)tableView indexPath:(NSIndexPath *)indexPath {
+    UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:@"MRvEKRow" forIndexPath:indexPath];
+    // No fake stats here — these are real, locally-created posts.
+    cell.backgroundColor = [UIColor colorWithWhite:1.0 alpha:0.06];
+    cell.selectionStyle = UITableViewCellSelectionStyleNone;
+    cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
+
+    for (UIView *sub in cell.contentView.subviews) {
+        [sub removeFromSuperview];
+    }
+
+    MRvEKLocalPost *post = self.localPosts[indexPath.row];
+
+    NSDateFormatter *formatter = [[NSDateFormatter alloc] init];
+    formatter.dateFormat = @"MMM d, h:mm a";
+
+    UILabel *title = [[UILabel alloc] init];
+    title.translatesAutoresizingMaskIntoConstraints = NO;
+    title.text = post.title;
+    title.textColor = [UIColor whiteColor];
+    title.font = [UIFont systemFontOfSize:14 weight:UIFontWeightMedium];
+    title.numberOfLines = 0;
+    [cell.contentView addSubview:title];
+
+    UILabel *stats = [[UILabel alloc] init];
+    stats.translatesAutoresizingMaskIntoConstraints = NO;
+    stats.text = [NSString stringWithFormat:@"by %@ · %@", post.authorMDID, [formatter stringFromDate:post.createdAt]];
+    stats.textColor = [UIColor colorWithWhite:1.0 alpha:0.4];
+    stats.font = [UIFont systemFontOfSize:11];
+    [cell.contentView addSubview:stats];
+
+    [NSLayoutConstraint activateConstraints:@[
+        [title.leadingAnchor constraintEqualToAnchor:cell.contentView.leadingAnchor constant:16],
+        [title.trailingAnchor constraintEqualToAnchor:cell.contentView.trailingAnchor constant:-16],
+        [title.topAnchor constraintEqualToAnchor:cell.contentView.topAnchor constant:10],
+
+        [stats.leadingAnchor constraintEqualToAnchor:cell.contentView.leadingAnchor constant:16],
+        [stats.trailingAnchor constraintEqualToAnchor:cell.contentView.trailingAnchor constant:-16],
+        [stats.topAnchor constraintEqualToAnchor:title.bottomAnchor constant:4],
+        [stats.bottomAnchor constraintEqualToAnchor:cell.contentView.bottomAnchor constant:-10],
+    ]];
+
+    return cell;
+}
+
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
     [tableView deselectRowAtIndexPath:indexPath animated:YES];
 
-    MRvEKBoardEntry *entry = self.entries[indexPath.row];
-    MRvEKPostDetailViewController *detail =
-        [[MRvEKPostDetailViewController alloc] initWithTitle:entry.title body:entry.body];
-    detail.modalPresentationStyle = UIModalPresentationOverFullScreen;
-    detail.modalTransitionStyle = UIModalTransitionStyleCrossDissolve;
-    [self presentViewController:detail animated:YES completion:nil];
+    if (indexPath.section == 0) {
+        MRvEKBoardEntry *entry = self.entries[indexPath.row];
+        MRvEKPostDetailViewController *detail =
+            [[MRvEKPostDetailViewController alloc] initWithTitle:entry.title body:entry.body];
+        detail.modalPresentationStyle = UIModalPresentationOverFullScreen;
+        detail.modalTransitionStyle = UIModalTransitionStyleCrossDissolve;
+        [self presentViewController:detail animated:YES completion:nil];
+    } else {
+        MRvEKLocalPost *post = self.localPosts[indexPath.row];
+        MRvEKPostDetailViewController *detail =
+            [[MRvEKPostDetailViewController alloc] initWithTitle:post.title body:post.body];
+        detail.modalPresentationStyle = UIModalPresentationOverFullScreen;
+        detail.modalTransitionStyle = UIModalTransitionStyleCrossDissolve;
+        [self presentViewController:detail animated:YES completion:nil];
+    }
 }
 
 #pragma mark - Dev menu
@@ -370,6 +467,15 @@
                                               style:UIAlertActionStyleDefault
                                             handler:^(UIAlertAction *action) {
         MRvEKFileTransferViewController *vc = [[MRvEKFileTransferViewController alloc] init];
+        vc.modalPresentationStyle = UIModalPresentationOverFullScreen;
+        vc.modalTransitionStyle = UIModalTransitionStyleCrossDissolve;
+        [self presentViewController:vc animated:YES completion:nil];
+    }]];
+
+    [menu addAction:[UIAlertAction actionWithTitle:@"New Post"
+                                              style:UIAlertActionStyleDefault
+                                            handler:^(UIAlertAction *action) {
+        MRvEKComposePostViewController *vc = [[MRvEKComposePostViewController alloc] init];
         vc.modalPresentationStyle = UIModalPresentationOverFullScreen;
         vc.modalTransitionStyle = UIModalTransitionStyleCrossDissolve;
         [self presentViewController:vc animated:YES completion:nil];
