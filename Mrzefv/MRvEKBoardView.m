@@ -1,7 +1,10 @@
 #import "MRvEKBoardView.h"
+#import "MRvEKPostDetailView.h"
+#import "MRvEKIdentity.h"
 
 @interface MRvEKBoardEntry : NSObject
 @property (nonatomic, copy) NSString *title;
+@property (nonatomic, copy) NSString *body;
 @property (nonatomic, copy) NSString *dateLabel;
 @property (nonatomic, assign) NSInteger comments;
 @property (nonatomic, assign) NSInteger views;
@@ -14,6 +17,7 @@
 @property (nonatomic, strong) UIView *headerView;
 @property (nonatomic, strong) UIView *heroView;
 @property (nonatomic, strong) UIView *searchBar;
+@property (nonatomic, strong) UIView *countRow;
 @property (nonatomic, strong) UITableView *tableView;
 @property (nonatomic, strong) NSArray<MRvEKBoardEntry *> *entries;
 @end
@@ -22,28 +26,34 @@
 
 - (void)viewDidLoad {
     [super viewDidLoad];
-    self.view.backgroundColor = [UIColor blackColor];
+    self.view.backgroundColor = [UIColor colorWithWhite:0.0 alpha:0.92]; // dim, not opaque
     [self buildEntries];
     [self buildHeader];
     [self buildHero];
     [self buildSearchBar];
+    [self buildCountRow];
     [self buildTableView];
 }
 
-// Real pinned-post titles, with mock comment/view counts for visual
-// weight only — nothing here is tracked or fetched from anywhere.
+// Real posts, real (original-written) content, mock comment/view counts
+// for visual weight only — nothing here is tracked or fetched.
 - (void)buildEntries {
-    NSArray<NSString *> *titles = @[
-        @"IPA.FARM — Broken Apps List",
-        @"AltStore Alternatives (IPA)",
-        @"IPA Signing Guide",
-        @"Sideload IPA — Best Practices",
+    NSArray<NSArray<NSString *> *> *seed = @[
+        @[@"IPA.FARM — Broken Apps List",
+          @"Resigned and sideloaded IPAs break for two main reasons: your signing cert gets revoked (Apple pulls free 7-day certs constantly, paid dev certs less often), or the app's own backend changes and stops talking to an old build. Before resigning something that's stopped working, check whether it's a cert issue (reinstall fixes it) or a backend issue (a fresh IPA is the only fix). Keeping a personal changelog of what version and source worked saves a lot of repeat troubleshooting."],
+        @[@"AltStore Alternatives (IPA)",
+          @"AltStore isn't the only way in. SideStore drops the AltServer companion app and refreshes over a local VPN tunnel instead — same 7-day free-cert cycle, no desktop needed. TrollStore signs apps permanently but only works on vulnerable firmware versions, so it's not an option on every device. Feather and Scarlet are newer on-device signers built around the same free-cert idea as AltStore. Sideloadly is the desktop route if you'd rather sign from a Mac or PC. All of them hit the same wall eventually: Apple's cert limits, not the tool."],
+        @[@"IPA Signing Guide",
+          @"iOS won't run an app unless its binary is signed with a valid certificate and matching provisioning profile. A free Apple ID gets you a 7-day cert and a 3-app limit; a paid developer account gets a year and up to 100 apps. Re-signing tools like zsign or AltSign don't rebuild the app — they swap in your entitlements and provisioning profile, then re-sign the binary so it matches. Rough flow: get the IPA, get a valid cert and profile, run it through a signer, install via your sideloading tool of choice."],
+        @[@"Sideload IPA — Best Practices",
+          @"Only pull IPAs from sources you actually trust — a repacked binary can carry anything. Keep a local copy of anything you've signed, since a revocation means resigning from scratch, not just reinstalling. Check what entitlements an IPA is asking for before you sign it; a simple utility app doesn't need background location or contacts access. And plan for revocation — it's a \"when,\" not an \"if,\" with free certs especially, so don't build a workflow that assumes today's install lasts forever."],
     ];
 
     NSMutableArray<MRvEKBoardEntry *> *entries = [NSMutableArray array];
-    for (NSString *title in titles) {
+    for (NSArray<NSString *> *row in seed) {
         MRvEKBoardEntry *entry = [[MRvEKBoardEntry alloc] init];
-        entry.title = title;
+        entry.title = row[0];
+        entry.body = row[1];
         entry.dateLabel = @"Pinned";
         entry.comments = arc4random_uniform(4);
         entry.views = arc4random_uniform(50) + 8;
@@ -55,7 +65,7 @@
 - (void)buildHeader {
     UIView *header = [[UIView alloc] init];
     header.translatesAutoresizingMaskIntoConstraints = NO;
-    header.backgroundColor = [UIColor blackColor];
+    header.backgroundColor = [UIColor clearColor]; // shows through to the dimmed view behind it
     [self.view addSubview:header];
 
     [NSLayoutConstraint activateConstraints:@[
@@ -65,11 +75,18 @@
         [header.heightAnchor constraintEqualToConstant:44],
     ]];
 
+    UILabel *menuIcon = [[UILabel alloc] init];
+    menuIcon.translatesAutoresizingMaskIntoConstraints = NO;
+    menuIcon.text = @"☰";
+    menuIcon.textColor = [UIColor colorWithWhite:1.0 alpha:0.55];
+    menuIcon.font = [UIFont systemFontOfSize:15];
+    [header addSubview:menuIcon];
+
     UILabel *word = [[UILabel alloc] init];
     word.translatesAutoresizingMaskIntoConstraints = NO;
-    word.text = @"Mrzefv // Pinned Posts";
+    word.text = @"📌 Mrzefv // Pinned";
     word.textColor = [UIColor whiteColor];
-    word.font = [UIFont monospacedSystemFontOfSize:15 weight:UIFontWeightBold];
+    word.font = [UIFont monospacedSystemFontOfSize:13 weight:UIFontWeightBold];
     [header addSubview:word];
 
     UIButton *more = [UIButton buttonWithType:UIButtonTypeSystem];
@@ -88,19 +105,33 @@
     [close addTarget:self action:@selector(dismissSelf) forControlEvents:UIControlEventTouchUpInside];
     [header addSubview:close];
 
+    UIButton *login = [UIButton buttonWithType:UIButtonTypeSystem];
+    login.translatesAutoresizingMaskIntoConstraints = NO;
+    [login setTitle:@"Login" forState:UIControlStateNormal];
+    login.tintColor = [UIColor colorWithWhite:1.0 alpha:0.4];
+    login.titleLabel.font = [UIFont systemFontOfSize:12];
+    [login addTarget:self action:@selector(showLoginInfo) forControlEvents:UIControlEventTouchUpInside];
+    [header addSubview:login];
+
     UIView *bottomLine = [[UIView alloc] init];
     bottomLine.translatesAutoresizingMaskIntoConstraints = NO;
     bottomLine.backgroundColor = [UIColor colorWithWhite:1.0 alpha:0.12];
     [header addSubview:bottomLine];
 
     [NSLayoutConstraint activateConstraints:@[
-        [word.leadingAnchor constraintEqualToAnchor:header.leadingAnchor constant:16],
+        [menuIcon.leadingAnchor constraintEqualToAnchor:header.leadingAnchor constant:16],
+        [menuIcon.centerYAnchor constraintEqualToAnchor:header.centerYAnchor],
+
+        [word.leadingAnchor constraintEqualToAnchor:menuIcon.trailingAnchor constant:10],
         [word.centerYAnchor constraintEqualToAnchor:header.centerYAnchor],
 
         [close.trailingAnchor constraintEqualToAnchor:header.trailingAnchor constant:-16],
         [close.centerYAnchor constraintEqualToAnchor:header.centerYAnchor],
 
-        [more.trailingAnchor constraintEqualToAnchor:close.leadingAnchor constant:-16],
+        [login.trailingAnchor constraintEqualToAnchor:close.leadingAnchor constant:-14],
+        [login.centerYAnchor constraintEqualToAnchor:header.centerYAnchor],
+
+        [more.trailingAnchor constraintEqualToAnchor:login.leadingAnchor constant:-14],
         [more.centerYAnchor constraintEqualToAnchor:header.centerYAnchor],
 
         [bottomLine.leadingAnchor constraintEqualToAnchor:header.leadingAnchor],
@@ -112,21 +143,19 @@
     self.headerView = header;
 }
 
-// Small original mark + tagline — structural echo of a hero banner,
-// none of the actual doxbin branding.
 - (void)buildHero {
     UIView *hero = [[UIView alloc] init];
     hero.translatesAutoresizingMaskIntoConstraints = NO;
-    hero.backgroundColor = [UIColor blackColor];
+    hero.backgroundColor = [UIColor clearColor];
     [self.view addSubview:hero];
 
     UIColor *accent = [UIColor colorWithRed:0.35 green:0.85 blue:0.75 alpha:1.0];
 
     UILabel *glyph = [[UILabel alloc] init];
     glyph.translatesAutoresizingMaskIntoConstraints = NO;
-    glyph.text = @"◇";
+    glyph.text = @"💀";
     glyph.textColor = [UIColor whiteColor];
-    glyph.font = [UIFont systemFontOfSize:30];
+    glyph.font = [UIFont systemFontOfSize:32];
     glyph.textAlignment = NSTextAlignmentCenter;
     [hero addSubview:glyph];
 
@@ -138,24 +167,34 @@
     tagline.textAlignment = NSTextAlignmentCenter;
     [hero addSubview:tagline];
 
+    UIColor *red = [UIColor colorWithRed:1.0 green:0.03 blue:0.08 alpha:1.0];
+    UILabel *stamp = [[UILabel alloc] init];
+    stamp.translatesAutoresizingMaskIntoConstraints = NO;
+    stamp.text = @"Mrzefv was here";
+    stamp.textColor = red;
+    stamp.font = [UIFont systemFontOfSize:9 weight:UIFontWeightSemibold];
+    stamp.textAlignment = NSTextAlignmentCenter;
+    [hero addSubview:stamp];
+
     [NSLayoutConstraint activateConstraints:@[
         [hero.topAnchor constraintEqualToAnchor:self.headerView.bottomAnchor],
         [hero.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
         [hero.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],
-        [hero.heightAnchor constraintEqualToConstant:76],
+        [hero.heightAnchor constraintEqualToConstant:92],
 
         [glyph.topAnchor constraintEqualToAnchor:hero.topAnchor constant:10],
         [glyph.centerXAnchor constraintEqualToAnchor:hero.centerXAnchor],
 
         [tagline.topAnchor constraintEqualToAnchor:glyph.bottomAnchor constant:4],
         [tagline.centerXAnchor constraintEqualToAnchor:hero.centerXAnchor],
+
+        [stamp.topAnchor constraintEqualToAnchor:tagline.bottomAnchor constant:2],
+        [stamp.centerXAnchor constraintEqualToAnchor:hero.centerXAnchor],
     ]];
 
     self.heroView = hero;
 }
 
-// Decorative only — visual parity with the reference layout, doesn't
-// filter anything. Fine to wire up to a real search later if wanted.
 - (void)buildSearchBar {
     UIView *bar = [[UIView alloc] init];
     bar.translatesAutoresizingMaskIntoConstraints = NO;
@@ -183,10 +222,55 @@
     self.searchBar = bar;
 }
 
+// Real count of what's actually here — no invented total, no fake
+// page count. Currently always "1" since there's only ever one page.
+- (void)buildCountRow {
+    UIView *row = [[UIView alloc] init];
+    row.translatesAutoresizingMaskIntoConstraints = NO;
+    [self.view addSubview:row];
+
+    UILabel *count = [[UILabel alloc] init];
+    count.translatesAutoresizingMaskIntoConstraints = NO;
+    count.text = [NSString stringWithFormat:@"%lu pinned post%@",
+                  (unsigned long)self.entries.count,
+                  self.entries.count == 1 ? @"" : @"s"];
+    count.textColor = [UIColor colorWithWhite:1.0 alpha:0.4];
+    count.font = [UIFont systemFontOfSize:10.5];
+    [row addSubview:count];
+
+    UILabel *pagePill = [[UILabel alloc] init];
+    pagePill.translatesAutoresizingMaskIntoConstraints = NO;
+    pagePill.text = @"1";
+    pagePill.textColor = [UIColor whiteColor];
+    pagePill.font = [UIFont systemFontOfSize:10.5];
+    pagePill.textAlignment = NSTextAlignmentCenter;
+    pagePill.backgroundColor = [UIColor colorWithWhite:1.0 alpha:0.1];
+    pagePill.layer.cornerRadius = 5;
+    pagePill.layer.masksToBounds = YES;
+    [row addSubview:pagePill];
+
+    [NSLayoutConstraint activateConstraints:@[
+        [row.topAnchor constraintEqualToAnchor:self.searchBar.bottomAnchor constant:8],
+        [row.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:16],
+        [row.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-16],
+        [row.heightAnchor constraintEqualToConstant:18],
+
+        [count.leadingAnchor constraintEqualToAnchor:row.leadingAnchor],
+        [count.centerYAnchor constraintEqualToAnchor:row.centerYAnchor],
+
+        [pagePill.trailingAnchor constraintEqualToAnchor:row.trailingAnchor],
+        [pagePill.centerYAnchor constraintEqualToAnchor:row.centerYAnchor],
+        [pagePill.widthAnchor constraintGreaterThanOrEqualToConstant:20],
+        [pagePill.heightAnchor constraintEqualToConstant:18],
+    ]];
+
+    self.countRow = row;
+}
+
 - (void)buildTableView {
     self.tableView = [[UITableView alloc] initWithFrame:CGRectZero style:UITableViewStylePlain];
     self.tableView.translatesAutoresizingMaskIntoConstraints = NO;
-    self.tableView.backgroundColor = [UIColor blackColor];
+    self.tableView.backgroundColor = [UIColor clearColor];
     self.tableView.separatorColor = [UIColor colorWithWhite:1.0 alpha:0.1];
     self.tableView.dataSource = self;
     self.tableView.delegate = self;
@@ -196,7 +280,7 @@
     [self.view addSubview:self.tableView];
 
     [NSLayoutConstraint activateConstraints:@[
-        [self.tableView.topAnchor constraintEqualToAnchor:self.searchBar.bottomAnchor constant:12],
+        [self.tableView.topAnchor constraintEqualToAnchor:self.countRow.bottomAnchor constant:10],
         [self.tableView.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
         [self.tableView.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],
         [self.tableView.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor],
@@ -211,8 +295,11 @@
 
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
     UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:@"MRvEKRow" forIndexPath:indexPath];
-    cell.backgroundColor = [UIColor blackColor];
+    // Pinned tint uses your own red (same value as the "Mrzefv" wordmark),
+    // not doxbin's — every row here is pinned, so all of them get it.
+    cell.backgroundColor = [UIColor colorWithRed:0.20 green:0.03 blue:0.05 alpha:0.85]; // pinned tint, still dimmed not opaque
     cell.selectionStyle = UITableViewCellSelectionStyleNone;
+    cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
 
     for (UIView *sub in cell.contentView.subviews) {
         [sub removeFromSuperview];
@@ -252,7 +339,13 @@
 
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
     [tableView deselectRowAtIndexPath:indexPath animated:YES];
-    // UI-only: no detail screen wired up on purpose.
+
+    MRvEKBoardEntry *entry = self.entries[indexPath.row];
+    MRvEKPostDetailViewController *detail =
+        [[MRvEKPostDetailViewController alloc] initWithTitle:entry.title body:entry.body];
+    detail.modalPresentationStyle = UIModalPresentationOverFullScreen;
+    detail.modalTransitionStyle = UIModalTransitionStyleCrossDissolve;
+    [self presentViewController:detail animated:YES completion:nil];
 }
 
 #pragma mark - Dev menu
@@ -287,6 +380,18 @@
     menu.popoverPresentationController.sourceRect = CGRectMake(self.view.bounds.size.width - 40, 60, 1, 1);
 
     [self presentViewController:menu animated:YES completion:nil];
+}
+
+- (void)showLoginInfo {
+    NSString *mdid = [MRvEKIdentity localMDID];
+    NSString *message = [NSString stringWithFormat:
+        @"No accounts, no server — just a local device ID, generated once and kept in Keychain, same pattern as the signer app.\n\nMDID: %@",
+        mdid];
+    UIAlertController *info = [UIAlertController alertControllerWithTitle:@"Local Identity"
+                                                                    message:message
+                                                             preferredStyle:UIAlertControllerStyleAlert];
+    [info addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
+    [self presentViewController:info animated:YES completion:nil];
 }
 
 - (void)dismissSelf {
