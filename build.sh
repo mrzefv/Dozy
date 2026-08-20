@@ -42,6 +42,7 @@ clang \
   -framework CoreGraphics \
   -framework Security \
   -framework UniformTypeIdentifiers \
+  -framework PhotosUI \
   "${SOURCES[@]}" \
   -o "$OUT_DIR/$OUT_NAME"
 
