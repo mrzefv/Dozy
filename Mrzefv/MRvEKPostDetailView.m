@@ -1,17 +1,26 @@
 #import "MRvEKPostDetailView.h"
+#import "MRvEKLocalPosts.h"
 
 @interface MRvEKPostDetailViewController ()
 @property (nonatomic, copy) NSString *postTitle;
 @property (nonatomic, copy) NSString *postBody;
+@property (nonatomic, copy) NSString *attachmentFilename;
 @end
 
 @implementation MRvEKPostDetailViewController
 
 - (instancetype)initWithTitle:(NSString *)title body:(NSString *)body {
+    return [self initWithTitle:title body:body attachmentFilename:nil];
+}
+
+- (instancetype)initWithTitle:(NSString *)title
+                          body:(NSString *)body
+            attachmentFilename:(NSString *)attachmentFilename {
     self = [super init];
     if (self) {
         _postTitle = [title copy];
         _postBody = [body copy];
+        _attachmentFilename = [attachmentFilename copy];
     }
     return self;
 }
@@ -108,8 +117,66 @@
         [body.topAnchor constraintEqualToAnchor:title.bottomAnchor constant:14],
         [body.leadingAnchor constraintEqualToAnchor:content.leadingAnchor],
         [body.trailingAnchor constraintEqualToAnchor:content.trailingAnchor],
-        [body.bottomAnchor constraintEqualToAnchor:content.bottomAnchor],
     ]];
+
+    UIView *lastView = body;
+
+    if (self.attachmentFilename.length > 0) {
+        NSString *path = [[MRvEKLocalPosts attachmentsDirectory] stringByAppendingPathComponent:self.attachmentFilename];
+        UIImage *image = [UIImage imageWithContentsOfFile:path];
+
+        if (image) {
+            UIImageView *imageView = [[UIImageView alloc] init];
+            imageView.translatesAutoresizingMaskIntoConstraints = NO;
+            imageView.image = image;
+            imageView.contentMode = UIViewContentModeScaleAspectFit;
+            imageView.layer.cornerRadius = 10;
+            imageView.layer.masksToBounds = YES;
+            imageView.backgroundColor = [UIColor colorWithWhite:1.0 alpha:0.06];
+            [content addSubview:imageView];
+
+            CGFloat aspect = image.size.height / MAX(image.size.width, 1);
+            [NSLayoutConstraint activateConstraints:@[
+                [imageView.topAnchor constraintEqualToAnchor:lastView.bottomAnchor constant:18],
+                [imageView.leadingAnchor constraintEqualToAnchor:content.leadingAnchor],
+                [imageView.trailingAnchor constraintEqualToAnchor:content.trailingAnchor],
+                [imageView.heightAnchor constraintEqualToAnchor:imageView.widthAnchor multiplier:MIN(aspect, 1.3)],
+            ]];
+            lastView = imageView;
+        } else {
+            UIButton *fileRow = [UIButton buttonWithType:UIButtonTypeSystem];
+            fileRow.translatesAutoresizingMaskIntoConstraints = NO;
+            [fileRow setTitle:[NSString stringWithFormat:@"📎  %@ — Share / Save", self.attachmentFilename]
+                     forState:UIControlStateNormal];
+            fileRow.contentHorizontalAlignment = UIControlContentHorizontalAlignmentLeft;
+            fileRow.contentEdgeInsets = UIEdgeInsetsMake(0, 12, 0, 12);
+            fileRow.tintColor = [UIColor colorWithWhite:1.0 alpha:0.75];
+            fileRow.titleLabel.font = [UIFont systemFontOfSize:13];
+            fileRow.backgroundColor = [UIColor colorWithWhite:1.0 alpha:0.06];
+            fileRow.layer.cornerRadius = 8;
+            [fileRow addTarget:self action:@selector(shareAttachment) forControlEvents:UIControlEventTouchUpInside];
+            [content addSubview:fileRow];
+
+            [NSLayoutConstraint activateConstraints:@[
+                [fileRow.topAnchor constraintEqualToAnchor:lastView.bottomAnchor constant:18],
+                [fileRow.leadingAnchor constraintEqualToAnchor:content.leadingAnchor],
+                [fileRow.trailingAnchor constraintEqualToAnchor:content.trailingAnchor],
+                [fileRow.heightAnchor constraintEqualToConstant:44],
+            ]];
+            lastView = fileRow;
+        }
+    }
+
+    [lastView.bottomAnchor constraintEqualToAnchor:content.bottomAnchor].active = YES;
+}
+
+- (void)shareAttachment {
+    if (self.attachmentFilename.length == 0) return;
+    NSString *path = [[MRvEKLocalPosts attachmentsDirectory] stringByAppendingPathComponent:self.attachmentFilename];
+    NSURL *url = [NSURL fileURLWithPath:path];
+    UIActivityViewController *activity = [[UIActivityViewController alloc] initWithActivityItems:@[url]
+                                                                              applicationActivities:nil];
+    [self presentViewController:activity animated:YES completion:nil];
 }
 
 - (void)dismissSelf {

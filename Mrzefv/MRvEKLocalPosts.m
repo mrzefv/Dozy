@@ -8,6 +8,18 @@ static NSString * const kMRvEKLocalPostsKey = @"com.mrvek.uplink.localPosts";
 
 @implementation MRvEKLocalPosts
 
++ (NSString *)attachmentsDirectory {
+    NSArray<NSString *> *caches = NSSearchPathForDirectoriesInDomains(NSCachesDirectory, NSUserDomainMask, YES);
+    NSString *dir = [caches.firstObject stringByAppendingPathComponent:@"DozyAttachments"];
+    if (![[NSFileManager defaultManager] fileExistsAtPath:dir]) {
+        [[NSFileManager defaultManager] createDirectoryAtPath:dir
+                                    withIntermediateDirectories:YES
+                                                     attributes:nil
+                                                          error:nil];
+    }
+    return dir;
+}
+
 + (NSArray<MRvEKLocalPost *> *)allPosts {
     NSArray<NSDictionary *> *raw = [[NSUserDefaults standardUserDefaults] arrayForKey:kMRvEKLocalPostsKey];
     if (raw.count == 0) return @[];
@@ -19,6 +31,7 @@ static NSString * const kMRvEKLocalPostsKey = @"com.mrvek.uplink.localPosts";
         post.title = dict[@"title"] ?: @"";
         post.body = dict[@"body"] ?: @"";
         post.authorMDID = dict[@"authorMDID"] ?: @"";
+        post.attachmentFilename = dict[@"attachmentFilename"];
         NSNumber *timestamp = dict[@"createdAt"];
         post.createdAt = timestamp ? [NSDate dateWithTimeIntervalSince1970:timestamp.doubleValue] : [NSDate date];
         [posts addObject:post];
@@ -26,7 +39,9 @@ static NSString * const kMRvEKLocalPostsKey = @"com.mrvek.uplink.localPosts";
     return posts;
 }
 
-+ (void)addPostWithTitle:(NSString *)title body:(NSString *)body {
++ (void)addPostWithTitle:(NSString *)title
+                     body:(NSString *)body
+       attachmentFilename:(NSString *)attachmentFilename {
     NSCharacterSet *whitespace = [NSCharacterSet whitespaceAndNewlineCharacterSet];
     NSString *trimmedTitle = [title stringByTrimmingCharactersInSet:whitespace];
     NSString *trimmedBody = [body stringByTrimmingCharactersInSet:whitespace];
@@ -35,12 +50,15 @@ static NSString * const kMRvEKLocalPostsKey = @"com.mrvek.uplink.localPosts";
     NSArray<NSDictionary *> *existing = [[NSUserDefaults standardUserDefaults] arrayForKey:kMRvEKLocalPostsKey] ?: @[];
     NSMutableArray<NSDictionary *> *raw = [existing mutableCopy];
 
-    NSDictionary *entry = @{
+    NSMutableDictionary *entry = [@{
         @"title": trimmedTitle,
         @"body": trimmedBody,
         @"authorMDID": [MRvEKIdentity localMDID],
         @"createdAt": @([[NSDate date] timeIntervalSince1970]),
-    };
+    } mutableCopy];
+    if (attachmentFilename.length > 0) {
+        entry[@"attachmentFilename"] = attachmentFilename;
+    }
     [raw addObject:entry];
 
     [[NSUserDefaults standardUserDefaults] setObject:raw forKey:kMRvEKLocalPostsKey];

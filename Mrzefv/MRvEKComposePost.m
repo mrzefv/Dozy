@@ -1,10 +1,14 @@
 #import "MRvEKComposePost.h"
 #import "MRvEKLocalPosts.h"
 #import "MRvEKIdentity.h"
+#import <PhotosUI/PhotosUI.h>
+#import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 
-@interface MRvEKComposePostViewController () <UITextFieldDelegate>
+@interface MRvEKComposePostViewController () <UITextFieldDelegate, PHPickerViewControllerDelegate, UIDocumentPickerDelegate>
 @property (nonatomic, strong) UITextField *titleField;
 @property (nonatomic, strong) UITextView *bodyView;
+@property (nonatomic, strong) UIButton *attachButton;
+@property (nonatomic, copy) NSString *attachmentFilename; // filename only, lives in MRvEKLocalPosts.attachmentsDirectory
 @end
 
 @implementation MRvEKComposePostViewController
@@ -95,6 +99,18 @@
     self.bodyView.textContainerInset = UIEdgeInsetsMake(10, 10, 10, 10);
     [self.view addSubview:self.bodyView];
 
+    self.attachButton = [UIButton buttonWithType:UIButtonTypeSystem];
+    self.attachButton.translatesAutoresizingMaskIntoConstraints = NO;
+    [self setAttachButtonIdleTitle];
+    self.attachButton.contentHorizontalAlignment = UIControlContentHorizontalAlignmentLeft;
+    self.attachButton.tintColor = [UIColor colorWithWhite:1.0 alpha:0.6];
+    self.attachButton.titleLabel.font = [UIFont systemFontOfSize:12.5];
+    self.attachButton.backgroundColor = [UIColor colorWithWhite:1.0 alpha:0.06];
+    self.attachButton.layer.cornerRadius = 8;
+    self.attachButton.contentEdgeInsets = UIEdgeInsetsMake(0, 12, 0, 12);
+    [self.attachButton addTarget:self action:@selector(showAttachOptions) forControlEvents:UIControlEventTouchUpInside];
+    [self.view addSubview:self.attachButton];
+
     UIButton *postButton = [UIButton buttonWithType:UIButtonTypeSystem];
     postButton.translatesAutoresizingMaskIntoConstraints = NO;
     [postButton setTitle:@"Post" forState:UIControlStateNormal];
@@ -126,9 +142,14 @@
         [self.bodyView.topAnchor constraintEqualToAnchor:self.titleField.bottomAnchor constant:12],
         [self.bodyView.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:20],
         [self.bodyView.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-20],
-        [self.bodyView.heightAnchor constraintEqualToConstant:160],
+        [self.bodyView.heightAnchor constraintEqualToConstant:140],
 
-        [postButton.topAnchor constraintEqualToAnchor:self.bodyView.bottomAnchor constant:16],
+        [self.attachButton.topAnchor constraintEqualToAnchor:self.bodyView.bottomAnchor constant:10],
+        [self.attachButton.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:20],
+        [self.attachButton.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-20],
+        [self.attachButton.heightAnchor constraintEqualToConstant:38],
+
+        [postButton.topAnchor constraintEqualToAnchor:self.attachButton.bottomAnchor constant:16],
         [postButton.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:20],
         [postButton.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-20],
         [postButton.heightAnchor constraintEqualToConstant:46],
@@ -139,6 +160,115 @@
     ]];
 }
 
+- (void)setAttachButtonIdleTitle {
+    [self.attachButton setTitle:@"📎  Attach a photo or file (optional)" forState:UIControlStateNormal];
+}
+
+#pragma mark - Attach flow
+
+- (void)showAttachOptions {
+    UIAlertController *sheet = [UIAlertController alertControllerWithTitle:nil
+                                                                     message:nil
+                                                              preferredStyle:UIAlertControllerStyleActionSheet];
+
+    [sheet addAction:[UIAlertAction actionWithTitle:@"Photo"
+                                               style:UIAlertActionStyleDefault
+                                             handler:^(UIAlertAction *action) {
+        [self presentPhotoPicker];
+    }]];
+
+    [sheet addAction:[UIAlertAction actionWithTitle:@"File"
+                                               style:UIAlertActionStyleDefault
+                                             handler:^(UIAlertAction *action) {
+        [self presentFilePicker];
+    }]];
+
+    if (self.attachmentFilename.length > 0) {
+        [sheet addAction:[UIAlertAction actionWithTitle:@"Remove Attachment"
+                                                   style:UIAlertActionStyleDestructive
+                                                 handler:^(UIAlertAction *action) {
+            self.attachmentFilename = nil;
+            [self setAttachButtonIdleTitle];
+        }]];
+    }
+
+    [sheet addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
+
+    sheet.popoverPresentationController.sourceView = self.attachButton;
+    sheet.popoverPresentationController.sourceRect = self.attachButton.bounds;
+
+    [self presentViewController:sheet animated:YES completion:nil];
+}
+
+- (void)presentPhotoPicker {
+    PHPickerConfiguration *config = [[PHPickerConfiguration alloc] init];
+    config.filter = [PHPickerFilter imagesFilter];
+    config.selectionLimit = 1;
+    PHPickerViewController *picker = [[PHPickerViewController alloc] initWithConfiguration:config];
+    picker.delegate = self;
+    [self presentViewController:picker animated:YES completion:nil];
+}
+
+- (void)presentFilePicker {
+    UIDocumentPickerViewController *picker =
+        [[UIDocumentPickerViewController alloc] initForOpeningContentTypes:@[UTTypeItem]];
+    picker.delegate = self;
+    picker.allowsMultipleSelection = NO;
+    [self presentViewController:picker animated:YES completion:nil];
+}
+
+- (void)saveAttachmentData:(NSData *)data suggestedName:(NSString *)suggestedName {
+    if (!data) return;
+    NSString *safeName = [NSString stringWithFormat:@"%@-%@",
+                           [[NSUUID UUID] UUIDString],
+                           suggestedName.length > 0 ? suggestedName : @"attachment"];
+    NSString *path = [[MRvEKLocalPosts attachmentsDirectory] stringByAppendingPathComponent:safeName];
+    if ([data writeToFile:path atomically:YES]) {
+        self.attachmentFilename = safeName;
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [self.attachButton setTitle:[NSString stringWithFormat:@"📎  %@ — tap to change", safeName]
+                                forState:UIControlStateNormal];
+        });
+    }
+}
+
+#pragma mark - PHPickerViewControllerDelegate
+
+- (void)picker:(PHPickerViewController *)picker didFinishPicking:(NSArray<PHPickerResult *> *)results {
+    [picker dismissViewControllerAnimated:YES completion:nil];
+    if (results.count == 0) return;
+
+    NSItemProvider *provider = results.firstObject.itemProvider;
+    if (![provider canLoadObjectOfClass:[UIImage class]]) return;
+
+    [provider loadObjectOfClass:[UIImage class] completionHandler:^(UIImage *image, NSError *error) {
+        if (!image) return;
+        NSData *jpegData = UIImageJPEGRepresentation(image, 0.8);
+        [self saveAttachmentData:jpegData suggestedName:@"photo.jpg"];
+    }];
+}
+
+#pragma mark - UIDocumentPickerDelegate
+
+- (void)documentPicker:(UIDocumentPickerViewController *)controller
+didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
+    if (urls.count == 0) return;
+    NSURL *url = urls.firstObject;
+
+    BOOL accessing = [url startAccessingSecurityScopedResource];
+    NSData *data = [NSData dataWithContentsOfURL:url];
+    if (accessing) {
+        [url stopAccessingSecurityScopedResource];
+    }
+    [self saveAttachmentData:data suggestedName:url.lastPathComponent];
+}
+
+- (void)documentPickerWasCancelled:(UIDocumentPickerViewController *)controller {
+    // no-op
+}
+
+#pragma mark - Submit
+
 - (void)submitPost {
     NSString *title = self.titleField.text ?: @"";
     NSCharacterSet *whitespace = [NSCharacterSet whitespaceAndNewlineCharacterSet];
@@ -146,7 +276,9 @@
         [self.titleField becomeFirstResponder];
         return;
     }
-    [MRvEKLocalPosts addPostWithTitle:title body:self.bodyView.text ?: @""];
+    [MRvEKLocalPosts addPostWithTitle:title
+                                  body:self.bodyView.text ?: @""
+                    attachmentFilename:self.attachmentFilename];
     [self dismissViewControllerAnimated:YES completion:nil];
 }
 

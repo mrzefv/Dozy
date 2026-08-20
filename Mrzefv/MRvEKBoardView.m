@@ -341,7 +341,7 @@
     UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:@"MRvEKRow" forIndexPath:indexPath];
     // Pinned tint uses your own red (same value as the "Mrzefv" wordmark),
     // not doxbin's — every row here is pinned, so all of them get it.
-    cell.backgroundColor = [UIColor colorWithRed:0.20 green:0.03 blue:0.05 alpha:0.85]; // pinned tint, still dimmed not opaque
+    cell.backgroundColor = [UIColor colorWithRed:0.20 green:0.03 blue:0.05 alpha:0.97]; // readable first, dim second
     cell.selectionStyle = UITableViewCellSelectionStyleNone;
     cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
 
@@ -407,7 +407,8 @@
 
     UILabel *stats = [[UILabel alloc] init];
     stats.translatesAutoresizingMaskIntoConstraints = NO;
-    stats.text = [NSString stringWithFormat:@"by %@ · %@", post.authorMDID, [formatter stringFromDate:post.createdAt]];
+    NSString *clip = post.attachmentFilename.length > 0 ? @"📎 " : @"";
+    stats.text = [NSString stringWithFormat:@"%@by %@ · %@", clip, post.authorMDID, [formatter stringFromDate:post.createdAt]];
     stats.textColor = [UIColor colorWithWhite:1.0 alpha:0.4];
     stats.font = [UIFont systemFontOfSize:11];
     [cell.contentView addSubview:stats];
@@ -439,7 +440,9 @@
     } else {
         MRvEKLocalPost *post = self.localPosts[indexPath.row];
         MRvEKPostDetailViewController *detail =
-            [[MRvEKPostDetailViewController alloc] initWithTitle:post.title body:post.body];
+            [[MRvEKPostDetailViewController alloc] initWithTitle:post.title
+                                                              body:post.body
+                                                attachmentFilename:post.attachmentFilename];
         detail.modalPresentationStyle = UIModalPresentationOverFullScreen;
         detail.modalTransitionStyle = UIModalTransitionStyleCrossDissolve;
         [self presentViewController:detail animated:YES completion:nil];
