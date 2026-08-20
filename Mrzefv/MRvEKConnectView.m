@@ -125,8 +125,9 @@
     UITapGestureRecognizer *dismissTap = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(dismissSelf)];
     [self.view addGestureRecognizer:dismissTap];
 
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(3.5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-        [self dismissSelf];
+    __weak typeof(self) weakSelf = self;
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(5.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        [weakSelf dismissSelf];
     });
 }
 
@@ -190,6 +191,9 @@
 }
 
 - (void)dismissSelf {
+    if (self.isBeingDismissed || self.presentingViewController == nil) {
+        return; // already gone — tap and the 5s timer can both fire
+    }
     [self dismissViewControllerAnimated:YES completion:nil];
 }
 
