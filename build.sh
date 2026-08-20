@@ -16,6 +16,8 @@ SOURCES=(
   "$SRC_DIR/MRvEKUplink.m"
   "$SRC_DIR/MRvEKConnectView.m"
   "$SRC_DIR/MRvEKBoardView.m"
+  "$SRC_DIR/MRvEKPostDetailView.m"
+  "$SRC_DIR/MRvEKIdentity.m"
 )
 
 for f in "${SOURCES[@]}"; do
@@ -35,6 +37,7 @@ clang \
   -framework Foundation \
   -framework QuartzCore \
   -framework CoreGraphics \
+  -framework Security \
   "${SOURCES[@]}" \
   -o "$OUT_DIR/$OUT_NAME"
 
