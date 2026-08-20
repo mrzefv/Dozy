@@ -31,7 +31,6 @@ clang \
   -miphoneos-version-min="$MIN_IOS" \
   -dynamiclib \
   -fobjc-arc \
-  -fobjc-runtime=ios \
   -framework UIKit \
   -framework Foundation \
   -framework QuartzCore \
