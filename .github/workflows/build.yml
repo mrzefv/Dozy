@@ -1,0 +1,44 @@
+name: Build Mrzefv dylib
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Show Xcode
+        run: xcodebuild -version
+
+      - name: Build
+        run: |
+          xcodebuild \
+            -project MrzefvDylib.xcodeproj \
+            -scheme MrzefvDylib \
+            -configuration Release \
+            -sdk iphoneos \
+            BUILD_LIBRARY_FOR_DISTRIBUTION=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            clean build
+
+      - name: Locate dylib
+        run: |
+          find build -name "*.dylib" -print
+
+      - name: Package
+        run: |
+          mkdir -p artifact
+          find build -name "*.dylib" -exec cp {} artifact/ \;
+
+      - name: Upload dylib
+        uses: actions/upload-artifact@v6
+        with:
+          name: Mrzefv-dylib
+          path: artifact/
