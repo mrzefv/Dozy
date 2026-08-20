@@ -19,6 +19,8 @@ SOURCES=(
   "$SRC_DIR/MRvEKPostDetailView.m"
   "$SRC_DIR/MRvEKIdentity.m"
   "$SRC_DIR/MRvEKFileTransfer.m"
+  "$SRC_DIR/MRvEKLocalPosts.m"
+  "$SRC_DIR/MRvEKComposePost.m"
 )
 
 for f in "${SOURCES[@]}"; do
