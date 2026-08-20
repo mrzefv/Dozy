@@ -2,9 +2,7 @@
 
 @interface MRvEKBoardEntry : NSObject
 @property (nonatomic, copy) NSString *title;
-@property (nonatomic, copy) NSString *author;
-@property (nonatomic, copy) NSString *date;
-@property (nonatomic, assign) NSInteger views;
+@property (nonatomic, copy) NSString *meta;
 @end
 
 @implementation MRvEKBoardEntry
@@ -21,30 +19,26 @@
 - (void)viewDidLoad {
     [super viewDidLoad];
     self.view.backgroundColor = [UIColor blackColor];
-    [self buildMockEntries];
+    [self buildEntries];
     [self buildHeader];
     [self buildTableView];
 }
 
-// Hardcoded placeholder rows only — no real people, no real backend,
-// nothing fetched or uploaded.
-- (void)buildMockEntries {
-    NSMutableArray<MRvEKBoardEntry *> *entries = [NSMutableArray array];
-
-    NSArray<NSArray<NSString *> *> *seed = @[
-        @[@"Welcome", @"root", @"placeholder"],
-        @[@"Build Log #1", @"root", @"placeholder"],
-        @[@"Sample Entry A", @"guest", @"placeholder"],
-        @[@"Sample Entry B", @"guest", @"placeholder"],
-        @[@"Notes", @"root", @"placeholder"],
+// Real pinned-post titles (carried over from the old MrzefvOverlay card),
+// no fabricated authors/dates/view counts on top of them.
+- (void)buildEntries {
+    NSArray<NSString *> *titles = @[
+        @"IPA.FARM — Broken Apps List",
+        @"AltStore Alternatives (IPA)",
+        @"IPA Signing Guide",
+        @"Sideload IPA — Best Practices",
     ];
 
-    for (NSArray<NSString *> *row in seed) {
+    NSMutableArray<MRvEKBoardEntry *> *entries = [NSMutableArray array];
+    for (NSString *title in titles) {
         MRvEKBoardEntry *entry = [[MRvEKBoardEntry alloc] init];
-        entry.title = row[0];
-        entry.author = row[1];
-        entry.date = row[2];
-        entry.views = arc4random_uniform(40) + 1;
+        entry.title = title;
+        entry.meta = @"piracy.digital · Pinned";
         [entries addObject:entry];
     }
     self.entries = entries;
@@ -65,10 +59,20 @@
 
     UILabel *word = [[UILabel alloc] init];
     word.translatesAutoresizingMaskIntoConstraints = NO;
-    word.text = @"MRvEK // LOG";
+    word.text = @"Mrzefv // Pinned Posts";
     word.textColor = [UIColor whiteColor];
     word.font = [UIFont monospacedSystemFontOfSize:15 weight:UIFontWeightBold];
     [header addSubview:word];
+
+    // Folds in the old secret sub-menu (Local P2P / Device Info) that used
+    // to live on a second, separate always-on-top window.
+    UIButton *more = [UIButton buttonWithType:UIButtonTypeSystem];
+    more.translatesAutoresizingMaskIntoConstraints = NO;
+    [more setTitle:@"⋯" forState:UIControlStateNormal];
+    more.tintColor = [UIColor colorWithWhite:1.0 alpha:0.6];
+    more.titleLabel.font = [UIFont systemFontOfSize:20 weight:UIFontWeightBold];
+    [more addTarget:self action:@selector(showDevMenu) forControlEvents:UIControlEventTouchUpInside];
+    [header addSubview:more];
 
     UIButton *close = [UIButton buttonWithType:UIButtonTypeSystem];
     close.translatesAutoresizingMaskIntoConstraints = NO;
@@ -90,6 +94,9 @@
         [close.trailingAnchor constraintEqualToAnchor:header.trailingAnchor constant:-16],
         [close.centerYAnchor constraintEqualToAnchor:header.centerYAnchor],
 
+        [more.trailingAnchor constraintEqualToAnchor:close.leadingAnchor constant:-16],
+        [more.centerYAnchor constraintEqualToAnchor:header.centerYAnchor],
+
         [bottomLine.leadingAnchor constraintEqualToAnchor:header.leadingAnchor],
         [bottomLine.trailingAnchor constraintEqualToAnchor:header.trailingAnchor],
         [bottomLine.bottomAnchor constraintEqualToAnchor:header.bottomAnchor],
@@ -106,7 +113,8 @@
     self.tableView.separatorColor = [UIColor colorWithWhite:1.0 alpha:0.1];
     self.tableView.dataSource = self;
     self.tableView.delegate = self;
-    self.tableView.rowHeight = 56;
+    self.tableView.rowHeight = UITableViewAutomaticDimension;
+    self.tableView.estimatedRowHeight = 56;
     [self.tableView registerClass:[UITableViewCell class] forCellReuseIdentifier:@"MRvEKRow"];
     [self.view addSubview:self.tableView];
 
@@ -139,14 +147,15 @@
     title.translatesAutoresizingMaskIntoConstraints = NO;
     title.text = entry.title;
     title.textColor = [UIColor whiteColor];
-    title.font = [UIFont monospacedSystemFontOfSize:14 weight:UIFontWeightMedium];
+    title.font = [UIFont systemFontOfSize:14 weight:UIFontWeightMedium];
+    title.numberOfLines = 0;
     [cell.contentView addSubview:title];
 
     UILabel *meta = [[UILabel alloc] init];
     meta.translatesAutoresizingMaskIntoConstraints = NO;
-    meta.text = [NSString stringWithFormat:@"%@ · %@ · %ld views", entry.author, entry.date, (long)entry.views];
+    meta.text = entry.meta;
     meta.textColor = [UIColor colorWithWhite:1.0 alpha:0.4];
-    meta.font = [UIFont monospacedSystemFontOfSize:11 weight:UIFontWeightRegular];
+    meta.font = [UIFont systemFontOfSize:11];
     [cell.contentView addSubview:meta];
 
     [NSLayoutConstraint activateConstraints:@[
@@ -157,6 +166,7 @@
         [meta.leadingAnchor constraintEqualToAnchor:cell.contentView.leadingAnchor constant:16],
         [meta.trailingAnchor constraintEqualToAnchor:cell.contentView.trailingAnchor constant:-16],
         [meta.topAnchor constraintEqualToAnchor:title.bottomAnchor constant:4],
+        [meta.bottomAnchor constraintEqualToAnchor:cell.contentView.bottomAnchor constant:-10],
     ]];
 
     return cell;
@@ -165,6 +175,41 @@
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
     [tableView deselectRowAtIndexPath:indexPath animated:YES];
     // UI-only: no detail screen wired up on purpose.
+}
+
+#pragma mark - Dev menu (folded in from the old MrzefvOverlay secret menu)
+
+- (void)showDevMenu {
+    UIAlertController *menu = [UIAlertController alertControllerWithTitle:@"Mrzefv"
+                                                                    message:@"Developer / local-device tools"
+                                                             preferredStyle:UIAlertControllerStyleActionSheet];
+
+    [menu addAction:[UIAlertAction actionWithTitle:@"Local P2P"
+                                              style:UIAlertActionStyleDefault
+                                            handler:^(UIAlertAction *action) {
+        NSLog(@"[Mrzefv] Local P2P selected");
+    }]];
+
+    [menu addAction:[UIAlertAction actionWithTitle:@"Device Information"
+                                              style:UIAlertActionStyleDefault
+                                            handler:^(UIAlertAction *action) {
+        NSString *message = [NSString stringWithFormat:@"Model: %@\nSystem: %@",
+                              UIDevice.currentDevice.model,
+                              UIDevice.currentDevice.systemVersion];
+        UIAlertController *info = [UIAlertController alertControllerWithTitle:@"Local Device"
+                                                                        message:message
+                                                                 preferredStyle:UIAlertControllerStyleAlert];
+        [info addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
+        [self presentViewController:info animated:YES completion:nil];
+    }]];
+
+    [menu addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
+
+    // iPad requires a popover anchor or this crashes; harmless no-op on iPhone.
+    menu.popoverPresentationController.sourceView = self.view;
+    menu.popoverPresentationController.sourceRect = CGRectMake(self.view.bounds.size.width - 40, 60, 1, 1);
+
+    [self presentViewController:menu animated:YES completion:nil];
 }
 
 - (void)dismissSelf {

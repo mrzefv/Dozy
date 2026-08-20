@@ -1,5 +1,4 @@
 #import "MRvEKConnectView.h"
-#import <QuartzCore/QuartzCore.h>
 #import <sys/utsname.h>
 
 @implementation MRvEKConnectViewController
@@ -18,60 +17,45 @@
         [content.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-32],
     ]];
 
-    UIColor *accent = [UIColor colorWithRed:0.35 green:0.85 blue:0.75 alpha:1.0];
+    UILabel *brand = [[UILabel alloc] init];
+    brand.translatesAutoresizingMaskIntoConstraints = NO;
+    brand.text = @"piracy.digital";
+    brand.textColor = [UIColor whiteColor];
+    brand.font = [UIFont systemFontOfSize:22 weight:UIFontWeightBold];
+    brand.textAlignment = NSTextAlignmentCenter;
+    [content addSubview:brand];
 
-    // Original mark: a simple drawn diamond, not any third-party logo.
-    UIView *markView = [[UIView alloc] init];
-    markView.translatesAutoresizingMaskIntoConstraints = NO;
-    [content addSubview:markView];
+    UILabel *glyph = [[UILabel alloc] init];
+    glyph.translatesAutoresizingMaskIntoConstraints = NO;
+    glyph.text = @"◇";
+    glyph.textColor = [UIColor whiteColor];
+    glyph.font = [UIFont systemFontOfSize:64];
+    glyph.textAlignment = NSTextAlignmentCenter;
+    [content addSubview:glyph];
 
-    CGFloat markSize = 56;
-    [NSLayoutConstraint activateConstraints:@[
-        [markView.topAnchor constraintEqualToAnchor:content.topAnchor],
-        [markView.centerXAnchor constraintEqualToAnchor:content.centerXAnchor],
-        [markView.widthAnchor constraintEqualToConstant:markSize],
-        [markView.heightAnchor constraintEqualToConstant:markSize],
-    ]];
-
-    CAShapeLayer *diamond = [CAShapeLayer layer];
-    UIBezierPath *path = [UIBezierPath bezierPath];
-    [path moveToPoint:CGPointMake(markSize / 2, 0)];
-    [path addLineToPoint:CGPointMake(markSize, markSize / 2)];
-    [path addLineToPoint:CGPointMake(markSize / 2, markSize)];
-    [path addLineToPoint:CGPointMake(0, markSize / 2)];
-    [path closePath];
-    diamond.path = path.CGPath;
-    diamond.strokeColor = accent.CGColor;
-    diamond.fillColor = [UIColor clearColor].CGColor;
-    diamond.lineWidth = 2.0;
-    diamond.frame = CGRectMake(0, 0, markSize, markSize);
-    [markView.layer addSublayer:diamond];
-
-    UILabel *wordmark = [[UILabel alloc] init];
-    wordmark.translatesAutoresizingMaskIntoConstraints = NO;
-    wordmark.text = @"MRvEK";
-    wordmark.textColor = [UIColor whiteColor];
-    wordmark.font = [UIFont monospacedSystemFontOfSize:24 weight:UIFontWeightBold];
-    wordmark.textAlignment = NSTextAlignmentCenter;
-    [content addSubview:wordmark];
-
-    [NSLayoutConstraint activateConstraints:@[
-        [wordmark.topAnchor constraintEqualToAnchor:markView.bottomAnchor constant:16],
-        [wordmark.centerXAnchor constraintEqualToAnchor:content.centerXAnchor],
-    ]];
+    UILabel *name = [[UILabel alloc] init];
+    name.translatesAutoresizingMaskIntoConstraints = NO;
+    name.text = @"Mrzefv";
+    name.textColor = [UIColor colorWithRed:1.0 green:0.03 blue:0.08 alpha:1.0];
+    name.font = [UIFont systemFontOfSize:27 weight:UIFontWeightBold];
+    name.textAlignment = NSTextAlignmentCenter;
+    [content addSubview:name];
 
     UILabel *status = [[UILabel alloc] init];
     status.translatesAutoresizingMaskIntoConstraints = NO;
-    status.text = @"CONNECTED";
-    status.textColor = accent;
-    status.font = [UIFont monospacedSystemFontOfSize:12 weight:UIFontWeightSemibold];
+    status.text = @"ONBOARDING SUCCESSFUL";
+    status.textColor = [UIColor colorWithRed:0.30 green:1.0 blue:0.45 alpha:1.0];
+    status.font = [UIFont systemFontOfSize:15 weight:UIFontWeightSemibold];
     status.textAlignment = NSTextAlignmentCenter;
     [content addSubview:status];
 
-    [NSLayoutConstraint activateConstraints:@[
-        [status.topAnchor constraintEqualToAnchor:wordmark.bottomAnchor constant:6],
-        [status.centerXAnchor constraintEqualToAnchor:content.centerXAnchor],
-    ]];
+    UILabel *hint = [[UILabel alloc] init];
+    hint.translatesAutoresizingMaskIntoConstraints = NO;
+    hint.text = @"Two-finger tap anywhere for developer menu";
+    hint.textColor = [UIColor grayColor];
+    hint.font = [UIFont systemFontOfSize:13];
+    hint.textAlignment = NSTextAlignmentCenter;
+    [content addSubview:hint];
 
     UIView *divider = [[UIView alloc] init];
     divider.translatesAutoresizingMaskIntoConstraints = NO;
@@ -79,14 +63,27 @@
     [content addSubview:divider];
 
     [NSLayoutConstraint activateConstraints:@[
-        [divider.topAnchor constraintEqualToAnchor:status.bottomAnchor constant:20],
+        [brand.topAnchor constraintEqualToAnchor:content.topAnchor],
+        [brand.centerXAnchor constraintEqualToAnchor:content.centerXAnchor],
+
+        [glyph.topAnchor constraintEqualToAnchor:brand.bottomAnchor constant:20],
+        [glyph.centerXAnchor constraintEqualToAnchor:content.centerXAnchor],
+
+        [name.topAnchor constraintEqualToAnchor:glyph.bottomAnchor constant:4],
+        [name.centerXAnchor constraintEqualToAnchor:content.centerXAnchor],
+
+        [status.topAnchor constraintEqualToAnchor:name.bottomAnchor constant:10],
+        [status.centerXAnchor constraintEqualToAnchor:content.centerXAnchor],
+
+        [hint.topAnchor constraintEqualToAnchor:status.bottomAnchor constant:10],
+        [hint.centerXAnchor constraintEqualToAnchor:content.centerXAnchor],
+
+        [divider.topAnchor constraintEqualToAnchor:hint.bottomAnchor constant:20],
         [divider.leadingAnchor constraintEqualToAnchor:content.leadingAnchor],
         [divider.trailingAnchor constraintEqualToAnchor:content.trailingAnchor],
         [divider.heightAnchor constraintEqualToConstant:1],
     ]];
 
-    // Local device info only — this is the host device's own info, not a
-    // remote target's.
     NSArray<NSArray<NSString *> *> *rows = @[
         @[@"Device", [self deviceModel]],
         @[@"System", [self systemVersion]],
